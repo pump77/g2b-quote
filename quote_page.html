@@ -383,7 +383,21 @@ const PRINT_ID = new URLSearchParams(location.search).get('print');  // PDF를 �
 const t = new Date();
 document.getElementById('f_date').value = t.getFullYear() + '년 ' + (t.getMonth() + 1) + '월 ' + t.getDate() + '일';
 for (let i = 0; i < 10; i++) addRow();
-if (PRINT_ID) fetch('/api/printdata?id=' + PRINT_ID).then(r => r.json()).then(d => applyData(d, true));
+// 인쇄·PDF에서 견적서가 A4 한 장을 꽉 채우도록 빈 줄을 더하고 줄 높이를 늘린다
+const PAGE_H = Math.floor(277 / 25.4 * 96 / 0.73) - 8;  // A4 세로 277mm(여백 뺀 높이)를 화면 크기로 바꾼 값
+function contentHeight() { const sh = document.querySelector('.sheet'); return sh.clientHeight - 104; }
+function fitPage() {
+  [...rowsEl.children].forEach(tr => tr.style.height = '');
+  let h = contentHeight();
+  if (h > PAGE_H) return;  // 한 장을 넘으면 그대로 둔다
+  const rowH = rowsEl.lastElementChild ? rowsEl.lastElementChild.offsetHeight : 54;
+  while (h + rowH <= PAGE_H) { addRow(); h = contentHeight(); }
+  const n = rowsEl.children.length, extra = Math.floor((PAGE_H - h) / n);
+  if (extra > 0) [...rowsEl.children].forEach(tr => tr.style.height = (tr.offsetHeight + extra) + 'px');
+}
+window.addEventListener('beforeprint', fitPage);
+window.addEventListener('afterprint', () => [...rowsEl.children].forEach(tr => tr.style.height = ''));
+if (PRINT_ID) fetch('/api/printdata?id=' + PRINT_ID).then(r => r.json()).then(d => { applyData(d, true); fitPage(); });
 else rowsEl.firstElementChild.querySelector('.number').focus({ preventScroll: true });
 </script>
 </body>
