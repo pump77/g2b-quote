@@ -66,6 +66,11 @@ def build_quote(items, info=None, out=None):
     out이 경로면 그 파일로 저장하고, 없으면 bytes를 돌려준다."""
     info = info or {}
     wb = Workbook()
+    try:  # 기본 글꼴을 맑은 고딕으로 (한국어 엑셀과 열 너비 계산을 맞춤)
+        normal = next(st for st in wb._named_styles if st.name == "Normal")
+        normal.font = Font(name=FONT, size=11)
+    except Exception:
+        pass
     ws = wb.active
     ws.title = "견적서"
     ws.sheet_view.showGridLines = False
@@ -127,10 +132,12 @@ def build_quote(items, info=None, out=None):
     ws.row_dimensions[9].height = 8
 
     # A4 한 장(위 10mm·아래 17mm 여백)을 꽉 채우도록 빈 줄 수와 줄 높이를 정한다
-    width_pt = sum(int(w * 7 + 5) for w in WIDTHS) * 0.75
+    # 한국어 엑셀(기본 글꼴 맑은 고딕)은 열 너비 1이 약 8픽셀이다. 높이를 조금 넉넉히 잡아
+    # 엑셀이 '세로'에 맞춰 축소하게 하면, 열 너비 계산이 조금 달라도 아래 공백이 생기지 않는다.
+    width_pt = sum(int(w * 8 + 5) for w in WIDTHS) * 0.75
     scale = min(1.0, (190 / 25.4 * 72) / width_pt)
     fixed_pt = 50 + 6 + 21 * 6 + 8 + 32 + 8 + 24 + 26 + 20
-    avail_pt = (270 / 25.4 * 72) / scale * 0.985 - fixed_pt
+    avail_pt = (270 / 25.4 * 72) / scale * 1.03 - fixed_pt
     rows = max(MIN_ROWS, len(items))
     row_h = 57
     if rows * row_h <= avail_pt:
