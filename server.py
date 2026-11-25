@@ -236,9 +236,18 @@ class Server(ThreadingHTTPServer):
     allow_reuse_address = True
 
 
+def warm_up():
+    """서버가 켜지자마자 PDF용 브라우저를 한 번 미리 띄워 둔다. 첫 'PDF로 저장'이 훨씬 빨라진다."""
+    try:
+        make_pdf({"info": {}, "items": []})
+    except Exception:
+        pass
+
+
 def main():
     os.makedirs(IMG_DIR, exist_ok=True)
     server = Server(("0.0.0.0", PORT), Handler)
+    threading.Thread(target=warm_up, daemon=True).start()
     print("나라장터 견적서 사이트 실행 중: http://127.0.0.1:%d/" % PORT, flush=True)
     try:
         server.serve_forever()

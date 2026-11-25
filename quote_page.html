@@ -7,7 +7,7 @@
 <meta name="description" content="나라장터 물품식별번호만 넣으면 견적서(엑셀·PDF)가 자동으로 만들어집니다.">
 <style>
   * { box-sizing: border-box; }
-  body { font-family: "맑은 고딕", "Malgun Gothic", sans-serif; font-size: 13px; color: #111; background: #eef0f4; margin: 0; padding: 18px; }
+  body { font-family: "맑은 고딕", "Malgun Gothic", "NanumGothic", "나눔고딕", sans-serif; font-size: 13px; color: #111; background: #eef0f4; margin: 0; padding: 18px; }
   .wrap { width: 1086px; margin: 0 auto; }
   .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .bar h1 { font-size: 18px; margin: 0 auto 0 0; }
@@ -58,6 +58,12 @@
   .notice .big em { font-style: normal; color: #c00000; background: #fff; padding: 0 6px; border-radius: 4px; }
   .notice .wait { font-size: 16px; font-weight: bold; color: #b04a00; margin-bottom: 6px; }
   .notice .small { font-size: 13px; color: #5a4300; line-height: 1.6; }
+  .busy-cover { display: none; position: fixed; inset: 0; background: rgba(20,30,50,.45); z-index: 99; align-items: center; justify-content: center; }
+  .busy-cover.on { display: flex; }
+  .busy-box { background: #fff; border-radius: 8px; padding: 26px 34px; text-align: center; font-size: 16px; line-height: 1.7; box-shadow: 0 6px 30px rgba(0,0,0,.3); }
+  .busy-box b { font-size: 19px; color: #1f3864; }
+  .spin { width: 34px; height: 34px; border: 4px solid #d6dbe6; border-top-color: #1f3864; border-radius: 50%; margin: 0 auto 12px; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .bulk { display: none; background: #fff; border: 1px solid #c9ced8; padding: 14px; margin-bottom: 12px; }
   .bulk textarea { width: 100%; height: 130px; font: inherit; padding: 8px; }
   @page { size: A4 portrait; margin: 10mm; }
@@ -67,18 +73,19 @@
     .wrap { min-width: 0; width: 980px; max-width: none; margin: 0; zoom: 0.73; }
     .items tr { break-inside: avoid; }
     input:focus { background: transparent; }
-    .bar, .hint, .bulk, .notice, .items td.del, .items th.del, .state { display: none !important; }
+    .bar, .hint, .bulk, .notice, .busy-cover, .items td.del, .items th.del, .state { display: none !important; }
     .sheet { border: none; padding: 0; }
     input::placeholder { color: transparent; }
   }
 </style>
 </head>
 <body>
+<div class="busy-cover" id="busy"><div class="busy-box"><div class="spin"></div><b id="busyTitle">PDF를 만드는 중입니다</b><br><span id="busyMsg">처음 한 번은 20~40초 걸릴 수 있습니다. 창을 닫지 말고 기다려 주세요.</span></div></div>
 <div class="wrap">
   <div class="notice" id="notice">
     <div class="big">👉 아래 표의 <em>식별번호</em> 칸에 번호만 치면 사진·품목·규격·단가가 자동으로 채워집니다.</div>
     <div class="wait">⏳ 처음 접속하면 서버가 깨어나는 데 30초~1분 정도 걸립니다. 첫 조회가 느려도 잠시만 기다려 주세요.</div>
-    <div class="small">설치·회원가입 없이 무료로 쓰실 수 있습니다. 오른쪽 위 공급자 정보(등록번호·상호·대표자 등)는 처음 한 번만 적어 두면 지금 쓰시는 브라우저에만 기억되며, 서버에는 저장되지 않습니다.</div>
+    <div class="small">설치·회원가입 없이 무료로 쓰실 수 있습니다.<br>오른쪽 위 공급자 정보(등록번호·상호·대표자 등)는 처음 한 번만 적어 두면 지금 쓰시는 브라우저에만 기억되며, 서버에는 저장되지 않습니다.</div>
   </div>
   <div class="bar">
     <h1>나라장터 견적서 작성</h1>
@@ -246,7 +253,19 @@ function collect() {
   }).filter(it => it.name || it.number);
 }
 
+let saving = false;
+function showBusy(on, title, msg) {
+  document.getElementById('busy').classList.toggle('on', on);
+  if (title) document.getElementById('busyTitle').textContent = title;
+  if (msg) document.getElementById('busyMsg').textContent = msg;
+  document.querySelectorAll('.bar button').forEach(b => b.disabled = on);
+}
 async function saveFile(kind) {
+  if (saving) return;  // 만드는 중에 또 누르면 무시 (파일이 두 번 받아지는 것을 막음)
+  saving = true;
+  try { await saveFileNow(kind); } finally { saving = false; showBusy(false); }
+}
+async function saveFileNow(kind) {
   const items = collect();
   if (!items.length) { alert('품목이 없습니다. 식별번호를 먼저 넣어 주세요.'); return; }
   if ([...rowsEl.children].some(tr => tr.classList.contains('err'))) {
@@ -256,11 +275,12 @@ async function saveFile(kind) {
   rememberTo();
   const info = { date: v('f_date'), to: v('f_to'), ref: v('f_ref'), valid: v('f_valid'), delivery: v('f_delivery') };
   SUP.forEach(k => info[k] = v('s_' + k));
-  if (kind === 'pdf') setState('PDF를 만드는 중입니다… (몇 초 걸립니다)');
+  if (kind === 'pdf') showBusy(true, 'PDF를 만드는 중입니다', '처음 한 번은 20~40초 걸릴 수 있습니다. 창을 닫지 말고 기다려 주세요.');
+  else showBusy(true, '엑셀 파일을 만드는 중입니다', '잠시만 기다려 주세요.');
   let res;
   try { res = await fetch(kind === 'pdf' ? '/api/pdf' : '/api/excel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ info, items }) }); }
-  catch (e) { setState(''); alert('서버에 연결하지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
-  setState('');
+  catch (e) { setState(''); showBusy(false); alert('서버에 연결하지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
+  setState(''); showBusy(false);
   if (!res.ok) {
     let msg = '저장하지 못했습니다.';
     try { msg = (await res.json()).error || msg; } catch (e) {}
