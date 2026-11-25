@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1120">
+<title>나라장터 견적서 작성</title>
+<meta name="description" content="나라장터 물품식별번호만 넣으면 견적서(엑셀·PDF)가 자동으로 만들어집니다.">
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "맑은 고딕", "Malgun Gothic", sans-serif; font-size: 13px; color: #111; background: #eef0f4; margin: 0; padding: 18px; }
+  .wrap { width: 1086px; margin: 0 auto; }
+  .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .bar h1 { font-size: 18px; margin: 0 auto 0 0; }
+  button { font: inherit; padding: 8px 14px; border: 1px solid #1f3864; background: #fff; color: #1f3864; border-radius: 4px; cursor: pointer; font-weight: bold; }
+  button.main { background: #1f3864; color: #fff; }
+  button.small { padding: 2px 7px; font-weight: normal; border-color: #999; color: #555; }
+  /* 화면도 인쇄와 같은 비율: 내용 폭 980px = 190mm, 좌우·위아래 여백 52px = 10mm */
+  .sheet { background: #fff; border: 1px solid #c9ced8; padding: 52px 52px; }
+  h2.title { text-align: center; font-size: 32px; letter-spacing: 14px; margin: 0 0 6px; padding-bottom: 5px; border-bottom: 2px solid #000; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border: 1px solid #000; padding: 0; height: 25px; }
+  .head { margin-bottom: 6px; }
+  .head td.l { background: #e4e9f2; font-weight: bold; text-align: center; width: 12%; }
+  .head td.v { background: #fff9e1; width: 38%; }
+  .head td.s { background: #fff9e1; }
+  .head td.s input { text-align: center; }
+  .head td.msg { border: none; font-weight: bold; padding-left: 4px; }
+  input { font: inherit; width: 100%; height: 100%; border: none; background: transparent; padding: 2px 6px; outline: none; }
+  input:focus { background: #fff3b8; }
+  .total td { height: 34px; text-align: center; }
+  .total .l { background: #e4e9f2; font-weight: bold; width: 14%; }
+  .total .k { font-weight: bold; font-size: 15px; }
+  .total .w { color: #c00000; font-weight: bold; font-size: 18px; width: 30%; }
+  .items { margin-top: 6px; }
+  .items th { background: #1f3864; color: #fff; height: 26px; }
+  .items td { height: 54px; text-align: center; }
+  .items td.in { background: #fff9e1; }
+  .items td.no { width: 34px; }
+  .items td.img { width: 66px; }
+  .items td.img { padding: 4px; vertical-align: middle; overflow: hidden; }
+  .items td.img img { width: 44px; height: 44px; object-fit: contain; display: block; margin: 0 auto; }
+  .items input { text-align: center; }
+  .items input.num { text-align: right; }
+  .items input.name { height: 24px; padding-top: 6px; }
+  .items input.model { height: 22px; padding-bottom: 6px; font-size: 12px; }
+  .items td.amt { text-align: right; padding-right: 6px; width: 100px; }
+  .items tr.sum td { height: 32px; background: #e4e9f2; font-weight: bold; }
+  .items tr.sum td.w { text-align: right; padding-right: 10px; font-size: 14px; }
+  .items tr.sum td.del { background: transparent; }
+  .items .del { border: none; width: 0; min-width: 0; padding: 0; background: transparent; position: relative; }
+  .items td.del button { position: absolute; left: 3px; top: 50%; transform: translateY(-50%); width: 19px; height: 19px; padding: 0; line-height: 1; }
+  .items tr.err td.idn { background: #ffd9d9; }
+  .items tr.busy td.idn { background: #dff0ff; }
+  .state { font-size: 11px; color: #c00000; padding: 0 4px 2px; }
+  .hint { color: #555; margin: 10px 2px 0; line-height: 1.7; }
+  .notice { background: #fff4d6; border: 1px solid #e0b84a; color: #5a4300; padding: 10px 14px; margin-bottom: 12px; border-radius: 4px; line-height: 1.6; }
+  .notice b { color: #8a5a00; }
+  .bulk { display: none; background: #fff; border: 1px solid #c9ced8; padding: 14px; margin-bottom: 12px; }
+  .bulk textarea { width: 100%; height: 130px; font: inherit; padding: 8px; }
+  @page { size: A4 portrait; margin: 10mm; }
+  @media print {
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; padding: 0; }
+    .wrap { min-width: 0; width: 980px; max-width: none; margin: 0; zoom: 0.73; }
+    .items tr { break-inside: avoid; }
+    input:focus { background: transparent; }
+    .bar, .hint, .bulk, .notice, .items td.del, .items th.del, .state { display: none !important; }
+    .sheet { border: none; padding: 0; }
+    input::placeholder { color: transparent; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="notice" id="notice">
+    <b>안내</b> · 처음 접속하거나 한동안 아무도 쓰지 않았다면 서버가 깨어나는 데 <b>최대 1분 정도</b> 걸릴 수 있습니다. 화면이 늦게 뜨거나 첫 번호 조회가 느려도 잠시만 기다려 주세요.<br>
+    · 설치나 회원가입 없이 무료로 쓰실 수 있습니다. 오른쪽 위 <b>공급자 정보</b>(등록번호·상호·대표자 등)는 처음 한 번만 적어 두면 <b>지금 쓰시는 컴퓨터의 브라우저</b>에만 기억되며, 서버에는 저장되지 않습니다.
+  </div>
+  <div class="bar">
+    <h1>나라장터 견적서 작성</h1>
+    <button onclick="toggleBulk()">번호 여러 개 한꺼번에 넣기</button>
+    <button onclick="document.getElementById('importFile').click()">불러오기 (엑셀·PDF)</button>
+    <input type="file" id="importFile" accept=".xlsx,.pdf" style="display:none" onchange="importExcel(this)">
+    <button onclick="addRow(true)">줄 추가</button>
+    <button onclick="clearAll()">전체 지우기</button>
+    <button onclick="rememberTo(); window.print()">인쇄</button>
+    <button class="main" onclick="saveFile('pdf')">PDF로 저장</button>
+    <button class="main" onclick="saveFile('excel')">엑셀로 저장</button>
+  </div>
+
+  <div class="bulk" id="bulk">
+    <b>식별번호를 한 줄에 하나씩 적어 주세요.</b> 번호 뒤에 한 칸 띄고 수량을 적으면 수량도 들어갑니다. (예: <code>25090886 2</code>)
+    <textarea id="bulkText" placeholder="25090886 1&#10;25090887 2"></textarea>
+    <div style="margin-top:8px"><button class="main" onclick="applyBulk()">넣기</button> <button onclick="toggleBulk()">닫기</button></div>
+  </div>
+
+  <div class="sheet">
+    <h2 class="title">견적서</h2>
+    <table class="head">
+      <tr><td class="l">견적일자</td><td class="v"><input id="f_date"></td><td class="l">등록번호</td><td class="s"><input id="s_regno"></td></tr>
+      <tr><td class="l">수 신</td><td class="v"><input id="f_to" list="toList" autocomplete="off" placeholder="거래처명 (귀하는 자동으로 붙습니다)"><datalist id="toList"></datalist></td><td class="l">상 호</td><td class="s"><input id="s_company" placeholder="우리 회사 상호"></td></tr>
+      <tr><td class="l">참 조</td><td class="v"><input id="f_ref" value="구매담당자님"></td><td class="l">대표자</td><td class="s"><input id="s_ceo" placeholder="(인)"></td></tr>
+      <tr><td class="l">유효기간</td><td class="v"><input id="f_valid" value="견적일로부터 30일"></td><td class="l">주 소</td><td class="s"><input id="s_addr"></td></tr>
+      <tr><td class="l">납 기</td><td class="v"><input id="f_delivery" value="협의"></td><td class="l">전화/팩스</td><td class="s"><input id="s_tel"></td></tr>
+      <tr><td class="msg" colspan="2">아래와 같이 견적합니다.</td><td class="l">담당자</td><td class="s"><input id="s_manager"></td></tr>
+    </table>
+
+    <table class="total">
+      <tr><td class="l">합계금액<br>(VAT포함)</td><td class="k" id="t_kor">일금 영원정</td><td class="w" id="t_won">₩0</td></tr>
+    </table>
+
+    <table class="items">
+      <thead><tr>
+        <th>No</th><th>이미지</th><th>품 목</th><th>규 격</th><th style="width:54px">수량</th><th style="width:48px">단위</th>
+        <th style="width:96px">단가</th><th>금액</th><th style="width:110px">식별번호</th><th style="width:110px">비 고</th><th class="del" style="background:#fff;border:none"></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+      <tfoot><tr class="sum"><td colspan="4">합 계</td><td id="sum_qty"></td><td>EA</td><td colspan="4" id="sum_won" class="w">₩0</td><td class="del"></td></tr></tfoot>
+    </table>
+    <div class="state" id="state"></div>
+    <div style="font-size:12px;padding:6px 4px 0">※ 단가는 나라장터 종합쇼핑몰 등록 가격(VAT 포함)이며, 식별번호는 나라장터 물품식별번호입니다.</div>
+  </div>
+
+  <div class="hint">
+    · <b>식별번호</b> 칸에 번호를 넣고 Enter(또는 다른 칸 클릭)를 누르면 사진·품목·규격·단가가 나라장터에서 자동으로 채워집니다.<br>
+    · <b>수신</b>은 마지막에 쓴 거래처가 미리 채워지고, 칸을 누르면 최근 거래처 목록에서 고를 수 있습니다. <b>참조</b>는 거래처마다 마지막에 쓴 것이 들어갑니다(처음엔 구매담당자님).<br>
+    · 수량은 1로, 비고에는 업체명이 들어갑니다. 품목 이름·모델명·수량·단가·비고는 채워진 뒤에 직접 고칠 수 있습니다.<br>
+    · 오른쪽 위 <b>등록번호·상호·대표자·주소·전화·담당자</b>에 견적을 내는 <b>우리 회사 정보</b>를 적어 주세요. 한 번 적어 두면 이 브라우저에 기억됩니다.<br>
+    · <b>엑셀로 저장</b>, <b>PDF로 저장</b>을 누르면 견적서 파일이 내려받아집니다. PDF는 거래처에 보내기 좋습니다.<br>
+    · <b>불러오기</b>로 이 사이트에서 저장한 엑셀이나 PDF를 다시 열어 고칠 수 있습니다.
+  </div>
+</div>
+
+<script>
+const rowsEl = document.getElementById('rows');
+const comma = n => (Number(n) || 0).toLocaleString('ko-KR');
+const num = s => Number(String(s || '').replace(/[^0-9]/g, '')) || 0;
+
+function korean(n) {
+  n = Math.floor(n); if (n <= 0) return '영';
+  const d = '영일이삼사오육칠팔구', small = ['', '십', '백', '천'], big = ['', '만', '억', '조'];
+  let res = '', g = 0;
+  while (n > 0) {
+    const chunk = n % 10000; n = Math.floor(n / 10000);
+    let s = '';
+    for (let i = 0; i < 4; i++) { const x = Math.floor(chunk / Math.pow(10, i)) % 10; if (x) s = d[x] + small[i] + s; }
+    if (s) res = s + big[g] + res;
+    g++;
+  }
+  return res;
+}
+
+function addRow(focus) {
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td class="no"></td><td class="img"></td>' +
+    '<td class="in"><input class="name"><input class="model"></td><td><input class="spec"></td>' +
+    '<td class="in"><input class="qty num" inputmode="numeric" style="text-align:center"></td><td><input class="unit"></td>' +
+    '<td><input class="price num" inputmode="numeric"></td><td class="amt"></td>' +
+    '<td class="in idn"><input class="number" inputmode="numeric" placeholder="번호 입력"></td>' +
+    '<td><input class="note"></td>' +
+    '<td class="del"><button class="small" title="이 줄 지우기" tabindex="-1">×</button></td>';
+  rowsEl.appendChild(tr);
+  const q = c => tr.querySelector('.' + c);
+  q('number').addEventListener('change', () => fill(tr));
+  q('number').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const next = tr.nextElementSibling || addRow(); next.querySelector('.number').focus(); }
+  });
+  ['qty', 'price'].forEach(c => q(c).addEventListener('input', recalc));
+  // 칸을 클릭하면 안의 숫자가 전체 선택되어, 바로 치면 새 숫자로 바뀐다
+  ['qty', 'price'].forEach(c => {
+    const el = q(c);
+    el.addEventListener('focus', () => { el.dataset.fresh = '1'; el.select(); });
+    el.addEventListener('click', () => { if (el.dataset.fresh) { el.select(); el.dataset.fresh = ''; } });
+    el.addEventListener('input', () => { el.dataset.fresh = ''; });
+    // Enter를 치면 바로 아래 줄의 같은 칸으로 내려간다
+    q(c).addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      const next = tr.nextElementSibling || addRow();
+      next.querySelector('.' + c).focus();
+    });
+  });
+  q('price').addEventListener('blur', () => { if (q('price').value) q('price').value = comma(num(q('price').value)); });
+  tr.querySelector('button').addEventListener('click', () => { tr.remove(); if (!rowsEl.children.length) addRow(); recalc(); });
+  recalc();
+  if (focus) q('number').focus();
+  return tr;
+}
+
+async function fill(tr) {
+  const q = c => tr.querySelector('.' + c);
+  const no = q('number').value.replace(/[^0-9]/g, '');
+  q('number').value = no;
+  tr.classList.remove('err'); tr.title = '';
+  if (!no) return;
+  tr.classList.add('busy');
+  let res;
+  try { res = await (await fetch('/api/lookup?no=' + no)).json(); }
+  catch (e) { res = { ok: false, error: '서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 번호를 다시 넣어 주세요.' }; }
+  tr.classList.remove('busy');
+  if (q('number').value !== no) return;
+  if (!res.ok) {
+    tr.classList.add('err'); tr.title = res.error;
+    setState(no + ': ' + res.error);
+    return;
+  }
+  const it = res.item;
+  q('name').value = it.name; q('model').value = it.model || ''; q('spec').value = it.spec; q('unit').value = it.unit;
+  q('price').value = comma(it.price);
+  if (!q('qty').value) q('qty').value = 1;
+  if (!q('note').value || q('note').value === tr.dataset.autoNote) q('note').value = it.company || '';
+  tr.dataset.autoNote = it.company || '';
+  tr.querySelector('.img').innerHTML = it.has_image ? '<img src="/img/' + no + '?t=' + Date.now() + '" alt="">' : '';
+  tr.title = it.full_name;
+  setState('');
+  recalc();
+  if (rowsEl.lastElementChild === tr) addRow();
+}
+
+function setState(msg) { document.getElementById('state').textContent = msg; }
+
+function recalc() {
+  let total = 0, totalQty = 0;
+  [...rowsEl.children].forEach((tr, i) => {
+    tr.querySelector('.no').textContent = i + 1;
+    const qty = num(tr.querySelector('.qty').value), price = num(tr.querySelector('.price').value);
+    totalQty += qty;
+    const amt = qty * price; total += amt;
+    tr.querySelector('.amt').textContent = (qty && price) ? comma(amt) : '';
+  });
+  document.getElementById('t_won').textContent = '₩' + comma(total);
+  document.getElementById('sum_won').textContent = '₩' + comma(total);
+  document.getElementById('sum_qty').textContent = totalQty ? comma(totalQty) : '';
+  document.getElementById('t_kor').textContent = '일금 ' + korean(total) + '원정';
+}
+
+function collect() {
+  return [...rowsEl.children].map(tr => {
+    const q = c => tr.querySelector('.' + c).value.trim();
+    return { name: q('name'), model: q('model'), spec: q('spec'), qty: num(q('qty')), unit: q('unit') || 'EA', price: num(q('price')), number: q('number'), note: q('note') };
+  }).filter(it => it.name || it.number);
+}
+
+async function saveFile(kind) {
+  const items = collect();
+  if (!items.length) { alert('품목이 없습니다. 식별번호를 먼저 넣어 주세요.'); return; }
+  if ([...rowsEl.children].some(tr => tr.classList.contains('err'))) {
+    if (!confirm('빨간색으로 표시된(조회되지 않은) 번호가 있습니다. 그대로 저장할까요?')) return;
+  }
+  const v = id => document.getElementById(id).value.trim();
+  rememberTo();
+  const info = { date: v('f_date'), to: v('f_to'), ref: v('f_ref'), valid: v('f_valid'), delivery: v('f_delivery') };
+  SUP.forEach(k => info[k] = v('s_' + k));
+  if (kind === 'pdf') setState('PDF를 만드는 중입니다… (몇 초 걸립니다)');
+  let res;
+  try { res = await fetch(kind === 'pdf' ? '/api/pdf' : '/api/excel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ info, items }) }); }
+  catch (e) { setState(''); alert('서버에 연결하지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
+  setState('');
+  if (!res.ok) {
+    let msg = '저장하지 못했습니다.';
+    try { msg = (await res.json()).error || msg; } catch (e) {}
+    if (kind === 'pdf' && confirm(msg + '\n\n대신 인쇄 창을 열까요? (프린터에서 "PDF로 저장"을 고르면 PDF가 만들어집니다)')) window.print();
+    else if (kind !== 'pdf') alert(msg);
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (info.to ? '견적서_' + info.to.replace(/[\\/:*?"<>|]/g, '') : '견적서') + (kind === 'pdf' ? '.pdf' : '.xlsx');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+}
+
+function toggleBulk() {
+  const b = document.getElementById('bulk');
+  b.style.display = b.style.display === 'block' ? 'none' : 'block';
+  if (b.style.display === 'block') document.getElementById('bulkText').focus();
+}
+
+async function applyBulk() {
+  const lines = document.getElementById('bulkText').value.split(/\n/).map(s => s.trim()).filter(Boolean);
+  for (const line of lines) {
+    const m = line.match(/(\d{6,})\D*(\d+)?/);
+    if (!m) continue;
+    let tr = [...rowsEl.children].find(r => !r.querySelector('.number').value && !r.querySelector('.name').value) || addRow();
+    tr.querySelector('.number').value = m[1];
+    if (m[2]) tr.querySelector('.qty').value = m[2];
+    await fill(tr);
+  }
+  document.getElementById('bulkText').value = '';
+  toggleBulk();
+}
+
+async function importExcel(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  if (collect().length && !confirm('지금 화면에 있는 내용을 지우고 파일 내용으로 바꿀까요?')) return;
+  setState('파일을 불러오는 중입니다…');
+  let res;
+  try {
+    const r = await fetch('/api/import', { method: 'POST', body: file });
+    res = await r.json();
+  } catch (e) { res = { ok: false, error: '파일을 보내지 못했습니다. 잠시 뒤 다시 해 주세요.' }; }
+  if (!res.ok) { setState(''); alert(res.error); return; }
+  applyData(res, false);
+  setState('');
+}
+
+// 불러온 내용을 화면에 채운다. exact=true면 공급자 칸도 그대로(빈칸 포함) 맞추고 기억하지 않는다.
+function applyData(res, exact) {
+  const info = res.info || {};
+  ['date', 'to', 'ref', 'valid', 'delivery'].forEach(k => { if (k in info) document.getElementById('f_' + k).value = info[k]; });
+  SUP.forEach(k => {
+    const el = document.getElementById('s_' + k);
+    if (exact) { el.value = info[k] || ''; return; }
+    if (!info[k]) return;
+    el.value = info[k]; el.dispatchEvent(new Event('input'));
+  });
+  rowsEl.innerHTML = '';
+  for (const it of res.items) {
+    const tr = addRow(), q = c => tr.querySelector('.' + c);
+    q('name').value = it.name; q('model').value = it.model; q('spec').value = it.spec;
+    q('qty').value = it.qty || ''; q('unit').value = it.unit; q('price').value = it.price ? comma(it.price) : '';
+    q('number').value = it.number; q('note').value = it.note;
+    if (it.has_image) tr.querySelector('.img').innerHTML = '<img src="/img/' + it.number + '?t=' + Date.now() + '" alt="">';
+  }
+  while (rowsEl.children.length < 10) addRow();
+  if (res.items.length >= 10 && !exact) addRow();
+  recalc();
+}
+
+function clearAll() {
+  if (!confirm('입력한 품목을 모두 지울까요?')) return;
+  rowsEl.innerHTML = '';
+  for (let i = 0; i < 10; i++) addRow();
+  setState('');
+}
+
+const SUP = ['regno', 'company', 'ceo', 'addr', 'tel', 'manager'];
+SUP.forEach(k => {
+  const el = document.getElementById('s_' + k);
+  try { el.value = (localStorage.getItem('quote_sup_' + k) || '').trim(); } catch (e) {}
+  el.addEventListener('input', () => { try { localStorage.setItem('quote_sup_' + k, el.value.trim()); } catch (e) {} });
+  // 앞뒤에 빈칸이 들어가면 가운데에서 밀려 보이므로 칸을 벗어날 때 지운다
+  el.addEventListener('blur', () => { el.value = el.value.trim(); });
+});
+// 수신·참조: 마지막 거래처를 미리 채우고, 최근 거래처와 거래처별 참조를 기억한다
+const REF_DEFAULT = '구매담당자님';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+const toEl = document.getElementById('f_to'), refEl = document.getElementById('f_ref');
+function fillToList() {
+  document.getElementById('toList').innerHTML = store.get('quote_recent_to', [])
+    .map(n => '<option value="' + n.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">').join('');
+}
+function rememberTo() {
+  const to = toEl.value.trim(), ref = refEl.value.trim();
+  if (!to) return;
+  store.set('quote_recent_to', [to, ...store.get('quote_recent_to', []).filter(n => n !== to)].slice(0, 10));
+  const refs = store.get('quote_ref_by_to', {}); refs[to] = ref; store.set('quote_ref_by_to', refs);
+  fillToList();
+}
+toEl.addEventListener('input', () => {
+  const to = toEl.value.trim(), refs = store.get('quote_ref_by_to', {});
+  const auto = !refEl.value.trim() || refEl.value.trim() === REF_DEFAULT || Object.values(refs).includes(refEl.value.trim());
+  if (auto) refEl.value = (to in refs) ? refs[to] : REF_DEFAULT;
+  store.set('quote_last_to', to); store.set('quote_last_ref', refEl.value.trim());
+});
+refEl.addEventListener('input', () => store.set('quote_last_ref', refEl.value.trim()));
+[toEl, refEl].forEach(el => el.addEventListener('blur', () => { el.value = el.value.trim(); }));
+fillToList();
+toEl.value = store.get('quote_last_to', '');
+refEl.value = store.get('quote_last_ref', REF_DEFAULT);
+const PRINT_ID = new URLSearchParams(location.search).get('print');  // PDF를 만들 때 서버가 쓰는 주소
+const t = new Date();
+document.getElementById('f_date').value = t.getFullYear() + '년 ' + (t.getMonth() + 1) + '월 ' + t.getDate() + '일';
+for (let i = 0; i < 10; i++) addRow();
+if (PRINT_ID) fetch('/api/printdata?id=' + PRINT_ID).then(r => r.json()).then(d => applyData(d, true));
+else rowsEl.firstElementChild.querySelector('.number').focus();
+</script>
+</body>
+</html>

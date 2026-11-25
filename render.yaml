@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: g2b-quote
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /healthz
+    autoDeploy: true
