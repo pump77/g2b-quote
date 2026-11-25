@@ -66,7 +66,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .bulk { display: none; background: #fff; border: 1px solid #c9ced8; padding: 14px; margin-bottom: 12px; }
   .bulk textarea { width: 100%; height: 130px; font: inherit; padding: 8px; }
-  @page { size: A4 portrait; margin: 10mm; }
+  @page { size: A4 portrait; margin: 10mm 10mm 17mm 10mm; }
   @media print {
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { background: #fff; padding: 0; }
@@ -94,7 +94,7 @@
     <input type="file" id="importFile" accept=".xlsx,.pdf" style="display:none" onchange="importExcel(this)">
     <button onclick="addRow(true)">줄 추가</button>
     <button onclick="clearAll()">전체 지우기</button>
-    <button onclick="rememberTo(); window.print()">인쇄</button>
+    <button onclick="rememberTo(); fitPage(); window.print()">인쇄</button>
     <button class="main" onclick="saveFile('pdf')">PDF로 저장</button>
     <button class="main" onclick="saveFile('excel')">엑셀로 저장</button>
   </div>
@@ -284,7 +284,7 @@ async function saveFileNow(kind) {
   if (!res.ok) {
     let msg = '저장하지 못했습니다.';
     try { msg = (await res.json()).error || msg; } catch (e) {}
-    if (kind === 'pdf' && confirm(msg + '\n\n대신 인쇄 창을 열까요? (프린터에서 "PDF로 저장"을 고르면 PDF가 만들어집니다)')) window.print();
+    if (kind === 'pdf' && confirm(msg + '\n\n대신 인쇄 창을 열까요? (프린터에서 "PDF로 저장"을 고르면 PDF가 만들어집니다)')) { fitPage(); window.print(); }
     else if (kind !== 'pdf') alert(msg);
     return;
   }
@@ -404,7 +404,7 @@ const t = new Date();
 document.getElementById('f_date').value = t.getFullYear() + '년 ' + (t.getMonth() + 1) + '월 ' + t.getDate() + '일';
 for (let i = 0; i < 10; i++) addRow();
 // 인쇄·PDF에서 견적서가 A4 한 장을 꽉 채우도록 빈 줄을 더하고 줄 높이를 늘린다
-const PAGE_H = Math.floor(277 / 25.4 * 96 / 0.73) - 8;  // A4 세로 277mm(여백 뺀 높이)를 화면 크기로 바꾼 값
+const PAGE_H = Math.floor(270 / 25.4 * 96 / 0.73) - 6;  // A4 297mm에서 위 10mm·아래 17mm 여백을 뺀 270mm를 화면 크기로 바꾼 값
 function contentHeight() { const sh = document.querySelector('.sheet'); return sh.clientHeight - 104; }
 function fitPage() {
   [...rowsEl.children].forEach(tr => tr.style.height = '');

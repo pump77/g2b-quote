@@ -126,7 +126,16 @@ def build_quote(items, info=None, out=None):
         merged(f"H{r}:J{r}", v, fill=INPUT, size=9 if len(v) > 16 else 10)
     ws.row_dimensions[9].height = 8
 
+    # A4 한 장(위 10mm·아래 17mm 여백)을 꽉 채우도록 빈 줄 수와 줄 높이를 정한다
+    width_pt = sum(int(w * 7 + 5) for w in WIDTHS) * 0.75
+    scale = min(1.0, (190 / 25.4 * 72) / width_pt)
+    fixed_pt = 50 + 6 + 21 * 6 + 8 + 32 + 8 + 24 + 26 + 20
+    avail_pt = (270 / 25.4 * 72) / scale * 0.985 - fixed_pt
     rows = max(MIN_ROWS, len(items))
+    row_h = 57
+    if rows * row_h <= avail_pt:
+        rows = max(rows, int(avail_pt // row_h))
+        row_h = round(avail_pt / rows, 1)
     first, last = 13, 13 + rows - 1
     total = sum(int(it.get("qty") or 0) * int(it.get("price") or 0) for it in items)
 
@@ -145,7 +154,7 @@ def build_quote(items, info=None, out=None):
     # 품목
     for i in range(rows):
         r = first + i
-        ws.row_dimensions[r].height = 57
+        ws.row_dimensions[r].height = row_h
         it = items[i] if i < len(items) else None
         cell(f"A{r}", i + 1)
         cell(f"B{r}")
@@ -166,8 +175,9 @@ def build_quote(items, info=None, out=None):
                 scale = IMG / max(img.width, img.height)
                 w, h = max(1, int(img.width * scale)), max(1, int(img.height * scale))
                 img.width, img.height = w, h
+                cell_h = int(row_h * 4 / 3)
                 marker = AnchorMarker(col=1, colOff=pixels_to_EMU((IMG_CELL_W - w) // 2),
-                                      row=r - 1, rowOff=pixels_to_EMU((IMG_CELL_H - h) // 2))
+                                      row=r - 1, rowOff=pixels_to_EMU(max(0, (cell_h - h) // 2)))
                 img.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(pixels_to_EMU(w), pixels_to_EMU(h)))
                 ws.add_image(img)
             except Exception:
@@ -187,11 +197,12 @@ def build_quote(items, info=None, out=None):
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.orientation = "portrait"
     ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0 if rows > 14 else 1
+    ws.page_setup.fitToHeight = 0 if len(items) > MIN_ROWS + 4 else 1
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_options.horizontalCentered = True
     ws.page_margins.left = ws.page_margins.right = 0.4  # 10mm
-    ws.page_margins.top = ws.page_margins.bottom = 0.5
+    ws.page_margins.top = 10 / 25.4      # 위 10mm
+    ws.page_margins.bottom = 17 / 25.4   # 아래 17mm
     ws.print_area = f"A1:J{r+1}"
 
     if out:
